@@ -5,6 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <random>
+#include "vec3.h"
 
 int overlappingCheck(global& g){
 
@@ -14,9 +15,9 @@ int overlappingCheck(global& g){
     for (int i = 0; i < N; ++i){
         for (int j = 0; j < i; ++j){
 
-            double dx = g.posX[i] - g.posX[j]; // distancia en x entre dos particulas
-            double dy = g.posY[i] - g.posY[j]; // distancia en y
-            double dz = g.posZ[i] - g.posZ[j]; // distancia en z
+            double dx = g.pos[i].x - g.pos[j].x; // distancia en x entre dos particulas
+            double dy = g.pos[i].y - g.pos[j].y; // distancia en y
+            double dz = g.pos[i].z - g.pos[j].z; // distancia en z
 
             //Minimum image
             dx -= g.L * int (dx * invBox); // como la caja es periodica, al estar en
@@ -43,9 +44,9 @@ void resolveOverlapping(global& g){
         for (int i = 0; i < N; ++i){
           for (int j = 0; j < i; ++j){
 
-            double dx = g.posX[i] - g.posX[j];
-            double dy = g.posY[i] - g.posY[j];
-            double dz = g.posZ[i] - g.posZ[j];
+            double dx = g.pos[i].x - g.pos[j].x;
+            double dy = g.pos[i].y - g.pos[j].y;
+            double dz = g.pos[i].z - g.pos[j].z;
 
             double r2 = dx * dx + dy * dy + dz * dz;
             if (r2 >= 4.0) continue;
@@ -53,13 +54,13 @@ void resolveOverlapping(global& g){
             double rr = std::sqrt(r2);
             rr = (2.0 - rr) / 2.0;   
 
-            g.posX[i] += rr * dx; 
-            g.posY[i] += rr * dy;
-            g.posZ[i] += rr * dz; 
+            g.pos[i].x += rr * dx; 
+            g.pos[i].y += rr * dy;
+            g.pos[i].z += rr * dz; 
 
-            g.posX[j] -= rr * dx; 
-            g.posY[j] -= rr * dy;
-            g.posZ[j] -= rr * dz;   
+            g.pos[j].x -= rr * dx; 
+            g.pos[j].y -= rr * dy;
+            g.pos[j].z -= rr * dz;   
         }
     }
         overlapping = overlappingCheck(g);
@@ -85,9 +86,9 @@ void generateOVITOFile(global& g) {
 
     outFile << "ITEM: ATOMS id type x y z\n";
     for (int i = 0; i < N; ++i) {
-        double x = g.posX[i];
-        double y = g.posY[i];
-        double z = g.posZ[i];
+        double x = g.pos[i].x;
+        double y = g.pos[i].y;
+        double z = g.pos[i].z;
 
         outFile << i  << " " << 1 << " " << x << " " << y << " " << z << "\n";
         // pos = pos + 0.001 * ori;
@@ -110,9 +111,9 @@ void updateOVITOFile(global& g) {
 
     outFile << "ITEM: ATOMS id type x y z\n";
     for (int i = 0; i < N; ++i) {
-        double x = g.posX[i];
-        double y = g.posY[i];
-        double z = g.posZ[i];
+        double x = g.pos[i].x;
+        double y = g.pos[i].y;
+        double z = g.pos[i].z;
 
         outFile << i  << " " << 1 << " " << x << " " << y << " " << z << "\n";
         // pos = pos + 0.001 * ori;
@@ -130,14 +131,12 @@ void initialization(global& g){
     std::mt19937 genPos(rd()); //Mersenne twister generator
     std::uniform_real_distribution<> disPos(0.0, 1.0);
 
-    g.posX.resize(N);
-    g.posY.resize(N);
-    g.posZ.resize(N);
+    g.pos.resize(N);
 
     for (int i = 0; i < N; ++i){
-      g.posX[i] = disPos(genPos) * g.L;
-      g.posY[i] = disPos(genPos) * g.L;
-      g.posZ[i] = disPos(genPos) * g.L;
+      g.pos[i].x = disPos(genPos) * g.L;
+      g.pos[i].y = disPos(genPos) * g.L;
+      g.pos[i].z = disPos(genPos) * g.L;
     }
     resolveOverlapping(g);
     generateOVITOFile(g);
