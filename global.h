@@ -3,6 +3,7 @@
 
 #include<cmath> 
 #include<vector>
+#include "vec3.h"
 
 constexpr double Pi = 3.14159265358979323846;
 
@@ -19,10 +20,7 @@ struct global{
     double L; // longitud de la caja de simulacion
     int timeStep = 0;
 
-    std::vector<double> posX; // posicion en x de la particula
-    std::vector<double> posY; // posicion en y
-    std::vector<double> posZ; // posicion en z
-
+    std::vector<vec3> pos;
 };
 
 #endif

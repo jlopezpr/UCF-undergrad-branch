@@ -5,7 +5,7 @@
 #include <cmath>
 #include <iostream>
 #include <fstream>
-
+#include "vec3.h"
 #include "global.h"
 #include "init.h"
 
@@ -17,9 +17,8 @@ struct lenardjones {
 
     std::vector<std::vector<int>> neighborCells;
     std::vector<std::vector<int>> neighborList;
-    std::vector<double> forceX;
-    std::vector<double> forceY;
-    std::vector<double> forceZ;
+    
+    std::vector<vec3> force;
 
     std::mt19937 gen;
     std::normal_distribution<> gauss;
@@ -81,9 +80,9 @@ void generateNeighborList(lenardjones& l, global& g){
     std::vector<std::vector<int>> verletList(numberOfCells);
 
     for (int i = 0; i < N; ++ i){
-        double x = g.posX[i];
-        double y = g.posY[i];
-        double z = g.posZ[i];
+        double x = g.pos[i].x;
+        double y = g.pos[i].y;
+        double z = g.pos[i].z;
 
         int nx = (x / cellSize);
         int ny = (y / cellSize);
@@ -103,17 +102,17 @@ void generateNeighborList(lenardjones& l, global& g){
     for (int s = 0; s < numberOfCells; ++s){
         for (int i : verletList[s]){
 
-            double x = g.posX[i];
-            double y = g.posY[i];
-            double z = g.posZ[i];
+            double x = g.pos[i].x;
+            double y = g.pos[i].y;
+            double z = g.pos[i].z;
 
             for (int t : l.neighborCells[s]){
                 for (int j : verletList[t]){
 
                     if (i >= j) continue;
-                    double x1 = x - g.posX[j];
-                    double y1 = y - g.posY[j];
-                    double z1 = z - g.posZ[j];
+                    double x1 = x - g.pos[j].x;
+                    double y1 = y - g.pos[j].y;
+                    double z1 = z - g.pos[j].z;
 
                     double dist = x1 * x1 + y1 * y1 + z1 * z1;
                     if (dist > squareCut) continue;
@@ -127,9 +126,9 @@ void generateNeighborList(lenardjones& l, global& g){
 void generateForces(lenardjones& l, global& g){
 
     for (int i = 0; i < N; ++i){
-        l.forceX[i] = 0;
-        l.forceY[i] = 0;
-        l.forceZ[i] = 0;
+        l.force[i].x = 0;
+        l.force[i].y = 0;
+        l.force[i].z = 0;
     }
     
     double epsilon = l.epsilon;
@@ -141,9 +140,9 @@ void generateForces(lenardjones& l, global& g){
         std::vector<int> neighbors = l.neighborList[i];
         for (int j : neighbors){
 
-            double dx = g.posX[i] - g.posX[j];
-            double dy = g.posY[i] - g.posY[j];
-            double dz = g.posZ[i] - g.posZ[j];
+            double dx = g.pos[i].x - g.pos[j].x;
+            double dy = g.pos[i].y - g.pos[j].y;
+            double dz = g.pos[i].z - g.pos[j].z;
 
             double r = 1.0 / (dx*dx + dy*dy + dz*dz);
             double r3 = std::pow(r, 3);
@@ -154,13 +153,13 @@ void generateForces(lenardjones& l, global& g){
 
             double force = outFactor * inFactor;
 
-            l.forceX[i] -= force * dx;
-            l.forceY[i] -= force * dy;
-            l.forceZ[i] -= force * dz;
+            l.force[i].x -= force * dx;
+            l.force[i].y -= force * dy;
+            l.force[i].z -= force * dz;
 
-            l.forceX[j] += force * dx;
-            l.forceY[j] += force * dy;
-            l.forceZ[j] += force * dz;
+            l.force[j].x += force * dx;
+            l.force[j].y += force * dy;
+            l.force[j].z += force * dz;
         }
         
     }
@@ -169,9 +168,9 @@ void generateForces(lenardjones& l, global& g){
 void periodicBC(global& g){
 
     for (int i = 0; i < N; ++i){
-        g.posX[i] += (g.posX[i] < 0) * g.L - (g.posX[i] >= g.L) * g.L;
-        g.posY[i] += (g.posY[i] < 0) * g.L - (g.posY[i] >= g.L) * g.L;
-        g.posZ[i] += (g.posZ[i] < 0) * g.L - (g.posZ[i] >= g.L) * g.L;
+        g.pos[i].x += (g.pos[i].x < 0) * g.L - (g.pos[i].x >= g.L) * g.L;
+        g.pos[i].y += (g.pos[i].y < 0) * g.L - (g.pos[i].y >= g.L) * g.L;
+        g.pos[i].z += (g.pos[i].z < 0) * g.L - (g.pos[i].z >= g.L) * g.L;
     }
 }
 
@@ -185,22 +184,20 @@ void updater(lenardjones& l, global& g){
         double randY = flucDis * l.gauss(l.gen);
         double randZ = flucDis * l.gauss(l.gen);
 
-        // g.posX[i] += l.forceX[i] * Dt + randX;
-        // g.posY[i] += l.forceY[i] * Dt + randY;
-        // g.posZ[i] += l.forceZ[i] * Dt + randZ;
+        // g.pos[i].x += l.force[i].x * Dt + randX;
+        // g.pos[i].y += l.force[i].y * Dt + randY;
+        // g.pos[i].z += l.force[i].z * Dt + randZ;
 
-        g.posX[i] += l.forceX[i] * Dt + randX;
-        g.posY[i] += l.forceY[i] * Dt + randY;
-        g.posZ[i] += l.forceZ[i] * Dt + randZ;
+        g.pos[i].x += l.force[i].x * Dt + randX;
+        g.pos[i].y += l.force[i].y * Dt + randY;
+        g.pos[i].z += l.force[i].z * Dt + randZ;
     }
 
     periodicBC(g);
 }
 
 void LJinit(lenardjones& l, global& g){
-    l.forceX.resize(N);
-    l.forceY.resize(N);
-    l.forceZ.resize(N);
+    l.force.resize(N);
     l.neighborList.resize(N);
 
     generateNeighborCells(l, g);
