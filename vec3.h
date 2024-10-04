@@ -4,7 +4,7 @@
 #include <cmath>
 #include <iostream>
 
-struct alignas(32) vec3 {
+struct vec3{
     double x, y, z;
 
     vec3(double x = 0, double y = 0, double z = 0) : x(x), y(y), z(z) {}
@@ -87,4 +87,3 @@ struct alignas(32) vec3 {
 };
 
 #endif // VEC3_H
-
