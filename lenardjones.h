@@ -11,12 +11,12 @@
 
 struct lenardjones {
 
-    double cutoff = 9.55;
+    double cutoff = 4.0;
     const double epsilon = 100;
     const double sigma = 2.1;
 
-    std::vector<std::vector<int>> neighborCells;
-    std::vector<std::vector<int>> neighborList;
+    std::vector<std::vector<int> > neighborCells;
+    std::vector<std::vector<int> > neighborList;
     
     std::vector<vec3> force;
 
@@ -77,7 +77,7 @@ void generateNeighborList(lenardjones& l, global& g){
     const double cellSize = g.L / cellsPerDim;
     const int numberOfCells = cellsPerDim * cellsPerDim * cellsPerDim;
 
-    std::vector<std::vector<int>> verletList(numberOfCells);
+    std::vector<std::vector<int> > verletList(numberOfCells);
 
     for (int i = 0; i < N; ++ i){
         double x = g.pos[i].x;
@@ -144,56 +144,31 @@ void generateForces(lenardjones& l, global& g){
             double dy = g.pos[i].y - g.pos[j].y;
             double dz = g.pos[i].z - g.pos[j].z;
 
-            double r = 1.0 / (dx*dx + dy*dy + dz*dz);
-            double r3 = std::pow(r, 3);
-            double rsqrt = std::sqrt(r);
+            vec3 r = {dx, dy, dz};
+            double r2 = r.squaremag();
+            double rsqrt = std::sqrt(r2);
+            if (r2 > 4.0) continue;
+            double r6 = std::pow(r2,3);
+            double r8 = r6 * r2;
             
-            double outFactor = (24 * epsilon * sigma6) * (r3 * rsqrt);
-            double inFactor = (2 * sigma6) * r3 - 1;
+            double outFactor = (24 * epsilon * sigma6) / (r8);
+            double inFactor = ((2 * sigma6) / r6) - 1;
 
-            double force = outFactor * inFactor;
-
-            l.force[i].x -= force * dx;
-            l.force[i].y -= force * dy;
-            l.force[i].z -= force * dz;
-
-            l.force[j].x += force * dx;
-            l.force[j].y += force * dy;
-            l.force[j].z += force * dz;
+            vec3 force = (inFactor * outFactor) * r;
+            l.force[i] = l.force[i] - force;
+            l.force[j] = l.force[j] + force
         }
         
     }
 }
 
-void periodicBC(global& g){
+void periodicLC(global& g){
 
     for (int i = 0; i < N; ++i){
         g.pos[i].x += (g.pos[i].x < 0) * g.L - (g.pos[i].x >= g.L) * g.L;
         g.pos[i].y += (g.pos[i].y < 0) * g.L - (g.pos[i].y >= g.L) * g.L;
         g.pos[i].z += (g.pos[i].z < 0) * g.L - (g.pos[i].z >= g.L) * g.L;
     }
-}
-
-void updater(lenardjones& l, global& g){
-
-    double flucDis = std::sqrt(2.0 * Dt);
-
-    for (int i = 0; i < N; ++i){
-
-        double randX = flucDis * l.gauss(l.gen);
-        double randY = flucDis * l.gauss(l.gen);
-        double randZ = flucDis * l.gauss(l.gen);
-
-        // g.pos[i].x += l.force[i].x * Dt + randX;
-        // g.pos[i].y += l.force[i].y * Dt + randY;
-        // g.pos[i].z += l.force[i].z * Dt + randZ;
-
-        g.pos[i].x += l.force[i].x * Dt + randX;
-        g.pos[i].y += l.force[i].y * Dt + randY;
-        g.pos[i].z += l.force[i].z * Dt + randZ;
-    }
-
-    periodicBC(g);
 }
 
 void LJinit(lenardjones& l, global& g){
@@ -203,22 +178,4 @@ void LJinit(lenardjones& l, global& g){
     generateNeighborCells(l, g);
 }
 
-void simulation(lenardjones& l, global& g){
-
-    initialization(g);
-    LJinit(l, g);
-    generateNeighborList(l, g);
-    std::cout << "Simulation has started" << std::endl;
-
-    for (int i = 0; i < numberOfTimeSteps; ++i){
-        generateForces(l, g);
-        updater(l, g);
-        
-        if (i % 100 == 99) generateNeighborList(l, g);
-        if ((i + 1) % writtingRate == 0){
-            g.timeStep = i;
-            updateOVITOFile(g);
-        }
-    }
-}
 #endif

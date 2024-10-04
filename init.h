@@ -5,7 +5,6 @@
 #include <iostream>
 #include <fstream>
 #include <random>
-#include "vec3.h"
 
 int overlappingCheck(global& g){
 
