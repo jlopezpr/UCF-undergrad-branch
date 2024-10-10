@@ -9,7 +9,7 @@
 #include "vec3.h"
 #include "global.h"
 #include "init.h"
-#include "lenardjones.h"
+
 
 struct asakuraoosawa {
     double cutoff = 4.0;

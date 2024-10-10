@@ -1,16 +1,16 @@
 #include <iostream>
 #include "simulation.h"
 #include "init.h"
-#include "global.h"
+
 
 int main(){
 
     global g;
-    lenardjones l;
+    hardsphere h;
     asakuraoosawa a;
     yukawa y;
     
-    simulation(g, l, y, a);
+    simulation(g, h, y, a);
 
     return 0;
 }
