@@ -1,172 +1,125 @@
 #ifndef HARDSPHERE_H
 #define HARDSPHERE_H
-#include <vector>
-#include <random>
-#include <cmath>
+
 #include <iostream>
-#include <fstream>
-#include "vec3.h"
 #include "global.h"
-#include "init.h"
 
-struct hardsphere {
-
-    double cutoff = 4.0;
-
-    std::vector<std::vector<int> > neighborCells;
-    std::vector<std::vector<int> > neighborList;
-    
-    std::vector<vec3> force;
-
-    std::mt19937 gen;
-    std::normal_distribution<> gauss;
+struct hardsphere{
+  double cutoff = 6.0;
+  std::vector<std::vector<int> > neighborList;
+  std::vector<std::vector<int> > neighborCells;
 };
 
-void generateNeighborCells(hardsphere& h, global& g){
+void hsNeighborCells(global& g, hardsphere& h){
 
-    const int cellsPerDim = g.L / h.cutoff;
-    const double cellSize = g.L / cellsPerDim;
-    const int numberOfCells = cellsPerDim * cellsPerDim * cellsPerDim;
+  const int cellsPerDim = g.L / h.cutoff;
+  const int numCells = cellsPerDim * cellsPerDim * cellsPerDim;
 
-    h.neighborCells.resize(numberOfCells);
+  h.neighborCells.resize(numCells);
+  for (int i = 0; i < cellsPerDim; i++){
+    for (int j = 0; j < cellsPerDim; j++){
+      for (int k = 0; k < cellsPerDim; k++){
+        int cellIndex = i * cellsPerDim * cellsPerDim + j * cellsPerDim + k;
 
-    for (int i = 0; i < cellsPerDim; i++){
-        for (int j = 0; j < cellsPerDim; j++){
-            for (int k = 0; k < cellsPerDim; k++){ 
-                int label = k + j * cellsPerDim + i * cellsPerDim * cellsPerDim;
+        std::vector<int> cellNeighbors;
+        for (int x = -1; x < 2; x++){
+          for (int y = -1; y < 2; y++){
+            for (int z = -1; z < 2; z++){
+              int nx = i + x;
+              int ny = j + y;
+              int nz = k + z;
 
-                std::vector<int> neighbors;
-                
-                for (int x = -1; x < 2; ++x){
-                    for (int y = -1; y < 2; ++y){
-                        for (int z = -1; z < 2; ++z){
-                            int nx = i + x;
-                            int ny = j + y;
-                            int nz = k + z;
+              nx += (nx < 0) * cellsPerDim - (nx == cellsPerDim) * cellsPerDim;
+              ny += (ny < 0) * cellsPerDim - (ny == cellsPerDim) * cellsPerDim;
+              nz += (nz < 0) * cellsPerDim - (nz == cellsPerDim) * cellsPerDim;
 
-                            nx += (nx < 0) * cellsPerDim - (nx == cellsPerDim) * cellsPerDim;
-                            ny += (ny < 0) * cellsPerDim - (ny == cellsPerDim) * cellsPerDim;
-                            nz += (nz < 0) * cellsPerDim - (nz == cellsPerDim) * cellsPerDim;
-
-                            int idx = nz + ny * cellsPerDim + nx * cellsPerDim * cellsPerDim;
-                            neighbors.push_back(idx);
-                        }
-                    }
-                }
-
-                h.neighborCells[label] = neighbors;
+              int idx = nx * cellsPerDim * cellsPerDim + ny * cellsPerDim + nz;
+              cellNeighbors.push_back(idx);
             }
+          }
         }
+        h.neighborCells[cellIndex] = cellNeighbors;
+      }
     }
+  }
 }
 
-void generateRandom(hardsphere& h){
-    std::random_device rd;  
-    std::mt19937 gen(rd()); 
-    std::normal_distribution<> gauss(0, 1);
+void hsNeighborLists(global& g, hardsphere& h){
+  const int cellsPerDim = g.L / h.cutoff;
+  const double cellSize = g.L / cellsPerDim;
+  const int numCells = cellsPerDim * cellsPerDim * cellsPerDim;
 
-    h.gen = gen;
-    h.gauss = gauss;
-}
+  h.neighborList.resize(N);
 
-void generateNeighborList(hardsphere& h, global& g){
-    
-    const int cellsPerDim = g.L / h.cutoff;
-    const double cellSize = g.L / cellsPerDim;
-    const int numberOfCells = cellsPerDim * cellsPerDim * cellsPerDim;
+  for (int i = 0; i < N; i++){
+    h.neighborList[i].clear();
+  }
 
-    std::vector<std::vector<int> > verletList(numberOfCells);
+  std::vector<std::vector<int> > verletList(numCells);
 
-    for (int i = 0; i < N; ++ i){
-        double x = g.pos[i].x;
-        double y = g.pos[i].y;
-        double z = g.pos[i].z;
+  for (int i = 0; i < N; i++){
+    vec3 r = g.pos[i];
 
-        int nx = (x / cellSize);
-        int ny = (y / cellSize);
-        int nz = (z / cellSize);
+    int nx = r.x / cellSize;
+    int ny = r.y / cellSize;
+    int nz = r.z / cellSize;
 
-        nx += (nx < 0) * 1 - (nx == cellsPerDim) * 1;
-        ny += (ny < 0) * 1 - (ny == cellsPerDim) * 1;
-        nz += (nz < 0) * 1 - (nz == cellsPerDim) * 1;
+    nx = (nx < 0) * cellsPerDim - (nx == cellsPerDim) * cellsPerDim;
+    ny = (ny < 0) * cellsPerDim - (ny == cellsPerDim) * cellsPerDim;
+    nz = (nz < 0) * cellsPerDim - (nz == cellsPerDim) * cellsPerDim;
 
-        int label = (nx * cellsPerDim * cellsPerDim) + (ny * cellsPerDim) + nz;
-        verletList[label].push_back(i);
-    }
-    
+    int cellIndex = nx * cellsPerDim * cellsPerDim + ny * cellsPerDim + nz;
 
-    double squareCut = h.cutoff * h.cutoff;
+    if (cellIndex > numCells) std::cout << "hardsphere " << cellIndex << std::endl;
 
-    for (int s = 0; s < numberOfCells; ++s){
-        for (int i : verletList[s]){
+    verletList.at(cellIndex).push_back(i);
+  }
 
-            double x = g.pos[i].x;
-            double y = g.pos[i].y;
-            double z = g.pos[i].z;
+  double squareCut = h.cutoff * h.cutoff;
 
-            for (int t : h.neighborCells[s]){
-                for (int j : verletList[t]){
+  for (int i = 0; i < numCells; i++){
+    for (int j : verletList[i]){
+      vec3 rj = g.pos[j];
 
-                    if (i >= j) continue;
-                    double x1 = x - g.pos[j].x;
-                    double y1 = y - g.pos[j].y;
-                    double z1 = z - g.pos[j].z;
+      for (int k : h.neighborCells[i]){
+        for (int m : verletList[k]){
+          if (j >= m) continue;
+          vec3 r = rj - g.pos[m];
+          double dist = r.squaremag();
 
-                    double dist = x1 * x1 + y1 * y1 + z1 * z1;
-                    if (dist > squareCut) continue;
-                    h.neighborList[i].push_back(j);
-                }
-            }
+          if (dist > squareCut) continue;
+          h.neighborList[j].push_back(m);
         }
+      }
     }
+  }
 }
 
-void generateForces(hardsphere& h, global& g){
-
-    for (int i = 0; i < N; ++i){
-        h.force[i].x = 0;
-        h.force[i].y = 0;
-        h.force[i].z = 0;
-    }
+void hsForces(global& g, hardsphere& h){
 
     for (int i = 0; i < N; i++){
         std::vector<int> neighbors = h.neighborList[i];
         for (int j : neighbors){
+            vec3 r = g.pos[i] - g.pos[j];
+            double d = r.squaremag();
 
-            double dx = g.pos[i].x - g.pos[j].x;
-            double dy = g.pos[i].y - g.pos[j].y;
-            double dz = g.pos[i].z - g.pos[j].z;
+            if (d > 4.0) continue;
 
-            vec3 r = {dx, dy, dz};
-            double r2 = r.squaremag();
-            double rsqrt = std::sqrt(r2);
-            if (r2 > 4.0) continue;
-            
-            double outFactor = 3 * Pi / Dt;
-            double inFactor = (2 / rsqrt) - 1;
+            double rsqrt = std::sqrt(d);
+
+            double outFactor = 1.0 / (2.0 * dt);
+            double inFactor = (2 - rsqrt) / rsqrt;
 
             vec3 force = (inFactor * outFactor) * r;
-            h.force[i] = h.force[i] - force;
-            h.force[j] = h.force[j] + force;
+            g.forces[i] = g.forces[i] + force;
+            g.forces[j] = g.forces[j] - force;
         }
-        
     }
 }
 
-void periodicHC(global& g){
-
-    for (int i = 0; i < N; ++i){
-        g.pos[i].x += (g.pos[i].x < 0) * g.L - (g.pos[i].x >= g.L) * g.L;
-        g.pos[i].y += (g.pos[i].y < 0) * g.L - (g.pos[i].y >= g.L) * g.L;
-        g.pos[i].z += (g.pos[i].z < 0) * g.L - (g.pos[i].z >= g.L) * g.L;
-    }
-}
-
-void HJinit(hardsphere& h, global& g){
-    h.force.resize(N);
+void HSinit(global& g, hardsphere& h){
     h.neighborList.resize(N);
-
-    generateNeighborCells(h, g);
+    hsNeighborCells(g, h);
 }
 
 #endif
