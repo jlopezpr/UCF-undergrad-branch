@@ -7,31 +7,24 @@
 #include <random>
 
 int overlappingCheck(global& g){
-
-    int output = 0; 
-    double invBox = 2.0 / g.L; // 
+    int output = 0;
+    double invBox = 2.0 / g.L;
 
     for (int i = 0; i < N; ++i){
         for (int j = 0; j < i; ++j){
+            vec3 r = g.pos[i] - g.pos[j];
 
-            double dx = g.pos[i].x - g.pos[j].x; // distancia en x entre dos particulas
-            double dy = g.pos[i].y - g.pos[j].y; // distancia en y
-            double dz = g.pos[i].z - g.pos[j].z; // distancia en z
+            r.x -= g.L * int (r.x * invBox);
+            r.y -= g.L * int (r.y * invBox);
+            r.z -= g.L * int (r.z * invBox);
 
-            //Minimum image
-            dx -= g.L * int (dx * invBox); // como la caja es periodica, al estar en
-            dy -= g.L * int (dy * invBox); // lados opuestos, en realidad la distancia
-            dz -= g.L * int (dz * invBox); // es menos
-
-            double distance = dx*dx + dy*dy + dz*dz;
-
-        if (distance < 4.0) {
-            output++;
-            return output;
-        }
+            double dist = r.squaremag();
+            if (dist < 4.0) {
+              output++;
+              return output;
+            }
         }
     }
-
     return output;
 }
 
@@ -39,40 +32,63 @@ void resolveOverlapping(global& g){
     int counter = 0;
     int overlapping = overlappingCheck(g);
 
-    while (overlapping == 1 && counter <= maxOverlapp){
+    while (overlapping == 1 && counter <= maxOverlap){
         for (int i = 0; i < N; ++i){
           for (int j = 0; j < i; ++j){
 
-            double dx = g.pos[i].x - g.pos[j].x;
-            double dy = g.pos[i].y - g.pos[j].y;
-            double dz = g.pos[i].z - g.pos[j].z;
+            vec3 r = g.pos[i] - g.pos[j];
+            double dist = r.squaremag();
+            if (dist >= 4.0) continue;
 
-            double r2 = dx * dx + dy * dy + dz * dz;
-            if (r2 >= 4.0) continue;
+            double rr = std::sqrt(dist);
+            rr = (2.0 - rr) / 2.0;
 
-            double rr = std::sqrt(r2);
-            rr = (2.0 - rr) / 2.0;   
-
-            g.pos[i].x += rr * dx; 
-            g.pos[i].y += rr * dy;
-            g.pos[i].z += rr * dz; 
-
-            g.pos[j].x -= rr * dx; 
-            g.pos[j].y -= rr * dy;
-            g.pos[j].z -= rr * dz;   
+            g.pos[i] = g.pos[i] + rr * r;
+            g.pos[j] = g.pos[j] - rr * r;
         }
     }
         overlapping = overlappingCheck(g);
         ++counter;
     }
+}
 
-    if (counter == maxOverlapp){
-        std::cout << "Overlapping is not resolved" << std::endl;
+void randomDistribution(global& g){
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::normal_distribution<> gauss(0, 1);
+
+    g.gen = gen;
+    g.gauss = gauss;
+}
+
+void periodic(global& g){
+    for (int i = 0; i < N; ++i){
+        g.pos[i].x += (g.pos[i].x < 0) * g.L - (g.pos[i].x >= g.L) * g.L;
+        g.pos[i].y += (g.pos[i].y < 0) * g.L - (g.pos[i].y >= g.L) * g.L;
+        g.pos[i].z += (g.pos[i].z < 0) * g.L - (g.pos[i].z >= g.L) * g.L;
     }
 }
 
+void updater(global& g){
+
+    double flucDis = std::sqrt(2.0 * dt);
+    vec3 vec;
+    for (int i = 0; i < N; ++i){
+        double randX = flucDis * g.gauss(g.gen);
+        double randY = flucDis * g.gauss(g.gen);
+        double randZ = flucDis * g.gauss(g.gen);
+
+        vec3 brown(randX, randY, randZ);
+
+        g.pos[i] = g.pos[i] + dt * g.forces[i] + brown;
+
+        g.forces[i] = vec;
+    }
+    periodic(g);
+}
+
 void generateOVITOFile(global& g) {
-    
+
     std::ofstream outFile("test.dump");
     outFile << "ITEM: TIMESTEP\n";
     outFile << g.timeStep << "\n";  // Timestep number
@@ -85,20 +101,17 @@ void generateOVITOFile(global& g) {
 
     outFile << "ITEM: ATOMS id type x y z\n";
     for (int i = 0; i < N; ++i) {
-        double x = g.pos[i].x;
-        double y = g.pos[i].y;
-        double z = g.pos[i].z;
+        vec3 r = g.pos[i];
 
-        outFile << i  << " " << 1 << " " << x << " " << y << " " << z << "\n";
-        // pos = pos + 0.001 * ori;
-        // outFile << i  << " " << 2 << " " << pos.x << " " << pos.y << " " << pos.z << "\n";
+        outFile << i  << " " << 1 << " " << r.x << " " << r.y << " " << r.z << "\n";
     }
     outFile.close();
 }
 
 void updateOVITOFile(global& g) {
-    
+
     std::ofstream outFile("test.dump", std::ios::app);
+
     outFile << "ITEM: TIMESTEP\n";
     outFile << g.timeStep << "\n";  // Timestep number
     outFile << "ITEM: NUMBER OF ATOMS\n";
@@ -110,20 +123,17 @@ void updateOVITOFile(global& g) {
 
     outFile << "ITEM: ATOMS id type x y z\n";
     for (int i = 0; i < N; ++i) {
-        double x = g.pos[i].x;
-        double y = g.pos[i].y;
-        double z = g.pos[i].z;
-
-        outFile << i  << " " << 1 << " " << x << " " << y << " " << z << "\n";
-        // pos = pos + 0.001 * ori;
-        // outFile << i  << " " << 2 << " " << pos.x << " " << pos.y << " " << pos.z << "\n";
+        vec3 r = g.pos[i];
+        outFile << i << " " << 1 << " " << r.x << " " << r.y << " " << r.z << "\n";
     }
+    
     outFile.close();
 }
 
+
 void initialization(global& g){
 
-    double vol = (4.0 / 3.0) * Pi * N / phi;
+    double vol = (4.0 / 3.0) * pi * N / phi;
     g.L = std::cbrt(vol);
 
     std::random_device rd; //Seed
@@ -137,9 +147,12 @@ void initialization(global& g){
       g.pos[i].y = disPos(genPos) * g.L;
       g.pos[i].z = disPos(genPos) * g.L;
     }
+
     resolveOverlapping(g);
+    randomDistribution(g);
     generateOVITOFile(g);
-}   
+}
+
 
 
 #endif
