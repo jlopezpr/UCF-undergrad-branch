@@ -1,16 +1,14 @@
-#include <iostream>
 #include "simulation.h"
-#include "init.h"
-
 
 int main(){
+  global g;
+  hardsphere h;
+  asakuraoosawa a;
+  yukawa y;
 
-    global g;
-    hardsphere h;
-    asakuraoosawa a;
-    yukawa y;
-    
-    simulation(g, h, y, a);
+  std::cout << "Simulating...\n";
 
-    return 0;
+  simulation(g, h, a, y);
+  std::cout << "Simulation complete.\n";
+  return 0;
 }
